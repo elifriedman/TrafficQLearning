@@ -7,6 +7,8 @@ Created on Thu Jun  4 17:10:09 2015
 import networkx as nx
 import numpy as np
 from kshortest import k_shortest_paths
+
+# just some useful functions
 def t(state): return chr(state+ord('A'))
 def getAction(s):
     r = [];
@@ -22,7 +24,14 @@ def getCost(x,s1,s2):
         return x.new_costs[i1][ind]
     except ValueError:
         return -1;
+def pp(p):
+    s = ''
+    for i in range(len(p)):
+        s += chr(p[i]+ord('A'))
+    return s
 
+############## define the network:
+############## A = 1, B = 2, ...
 states = [
             [1, 2, 3],          # A
             [0, 3, 4],          # B
@@ -38,21 +47,25 @@ states = [
             [8, 9],             # L
             [9, 10]             # M
         ]
+
+############## free flow cost of each edge
 cost_lists = [
             [7, 5, 15],		   # A
             [7, 11, 11],           # B
             [5, 7, 11, 9],         # C
-            [15, 11, 7, 7, 0, 9],  # D
+            [15, 11, 7, 7, 7, 9],  # D
             [11, 7, 7],            # E
             [11, 9, 13],           # F
-            [9, 0, 9, 9, 0, 13],   # G
+            [9, 7, 9, 9, 3, 13],   # G
             [9, 7, 9, 3],          # H
             [13, 9, 2],            # I
-            [0, 9, 9, 12, 12],     # J
+            [3, 9, 9, 12, 12],     # J
             [13, 3, 9, 2],         # K
             [2, 12],               # L
             [12, 2]                # M
         ]
+
+# put graph into networkx Graph to use their builtin functions
 costs = {}
 g = nx.Graph()
 for i in range(len(states)):
@@ -82,19 +95,41 @@ def find_subsequence(seq, subseq):
   return candidates[mask]
 
 
+# find the shortest paths for each OD pair (uniq is used b/c k_shortest_paths sometimes returns duplicates)
 K=8
 ALpaths = uniq(k_shortest_paths(g,0,11,100,weight='cost'),K)
 AMpaths = uniq(k_shortest_paths(g,0,12,100,weight='cost'),K)
 BLpaths = uniq(k_shortest_paths(g,1,11,100,weight='cost'),K)
 BMpaths = uniq(k_shortest_paths(g,1,12,100,weight='cost'),K)
-costs = np.array(ALpaths[0]+AMpaths[0]+BLpaths[0]+BMpaths[0]) # join them
 paths = np.array(ALpaths[1]+AMpaths[1]+BLpaths[1]+BMpaths[1])
 
+
+
+############# to use modified network, uncomment following lines #####################
+g.add_edge(6,9,cost=0)
+g.add_edge(9,6,cost=0)
+g.add_edge(3,6,cost=0)
+g.add_edge(6,3,cost=0)
+#####################################################################################
+
+
+
+# get the total free flow cost for each path
+costs = np.zeros_like(paths)
+for i in range(len(paths)):
+    path = paths[i]
+    cost = 0
+    for j in range(len(path)-1):
+        cost += g.get_edge_data(path[j],path[j+1])['cost']
+    costs[i] = cost
+    
+# build up the "common edge" matrix
+# cost_mat[i][j] contains the number of edges path[i] has in common with path[j]
 cost_mat = np.zeros((4*K,4*K))
 for i in range(len(cost_mat[0])):
   for j in range(len(cost_mat[0])):
     if i==j:
-      cost_mat[i][j] = len(paths[i])
+      cost_mat[i][j] = len(paths[i])-1
     else:
       path= paths[i]
       for e in range(len(paths[j])-1):
@@ -104,6 +139,8 @@ for i in range(len(cost_mat[0])):
           cost_mat[i][j] += 1
 cost_mat *= 0.02
 
+# functions to pass into the Q Learning Agents
+# given a state, the function returns the possible actions
 def ALfunc(s):
   if s==0: return range(K)
   else: return None

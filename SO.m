@@ -1,6 +1,6 @@
 cd('/home/friedm3/Dropbox/TrafficNetworks/CodeBase')
-costmat = load('cost_mat_mod.csv');
-costs = load('costs_modified.csv');
+costmat = load('cost_mat.csv');
+costs = load('costs_mod.csv');
 
 AL = zeros(1,32);
 AL(1:8) = 1;
